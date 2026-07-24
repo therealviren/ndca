@@ -104,5 +104,5 @@ __all__ = [
     "transaction",
 ]
 
-__version__ = "4.0.0"
+__version__ = "4.0.2"
 version = __version__
