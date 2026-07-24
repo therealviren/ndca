@@ -1,6 +1,6 @@
 # NDCA
 Nested Data Collection API  
-Version 4.0.0
+Version 4.0.1
 
 ---
 
@@ -10,7 +10,7 @@ NDCA (Nested Data Collection API) is a fast, secure, and production-ready Python
 
 NDCA is designed for reliability, atomic persistence, safe in-memory operations, and a simple but powerful API suitable for scripts, services, tools, and applications.
 
-Version **4.0.0** improves the stability of the format, adds more utilities, better serialization, table features, CSV support, pagination helpers, hashing utilities, and stronger internal safety.
+Version **4.0.1** improves the stability of the format, adds more utilities, better serialization, table features, CSV support, pagination helpers, hashing utilities, and stronger internal safety.
 
 ---
 
@@ -319,7 +319,7 @@ items
 
 # VERSION
 
-NDCA Version 4.0.0
+NDCA Version 4.0.1
 
 ---
 
