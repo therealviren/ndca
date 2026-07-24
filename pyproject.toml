@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=70.0", "wheel>=0.38.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ndca"
+version = "4.0.0"
+description = "NDCA (Nested Data Collection API) — a fast, safe, and human-readable nested data storage and manipulation library for Python."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [
+  { name = "Viren Sahti" }
+]
+keywords = ["ndca", "nested", "data", "storage", "serialization", "configuration", "table", "csv", "python", "library"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Database :: Database Engines/Servers"
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "mypy>=1.0",
+  "black>=23.0",
+  "ruff>=0.12",
+  "isort>=6.0",
+  "pre-commit>=3.0"
+]
+test = [
+  "pytest-cov>=4.0"
+]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["ndca*"]
+
+[tool.setuptools.package-data]
+"ndca" = ["py.typed", "*.pyi", "py.typed"]
+
+[tool.setuptools.dynamic]
+readme = { file = "README.md" }

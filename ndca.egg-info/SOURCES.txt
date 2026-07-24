@@ -1,0 +1,14 @@
+LICENSE
+README.md
+pyproject.toml
+ndca/__init__.py
+ndca/core.py
+ndca/parser.py
+ndca/serializer.py
+ndca/utils.py
+ndca.egg-info/PKG-INFO
+ndca.egg-info/SOURCES.txt
+ndca.egg-info/dependency_links.txt
+ndca.egg-info/not-zip-safe
+ndca.egg-info/requires.txt
+ndca.egg-info/top_level.txt
