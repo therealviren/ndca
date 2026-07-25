@@ -6,7 +6,7 @@ It combines a human-readable text format with a path-based API, atomic file writ
 
 ## Version
 
-NDCA 5.0.1
+NDCA 5.0.2
 
 ## Highlights
 
