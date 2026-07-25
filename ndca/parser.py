@@ -11,7 +11,12 @@ class NDCAParseError(Exception):
 
 
 class NDCAParser:
-    def __init__(self, text: str, allow_duplicate_keys: bool = False, bool_case_insensitive: bool = True):
+    def __init__(
+        self,
+        text: str,
+        allow_duplicate_keys: bool = False,
+        bool_case_insensitive: bool = True,
+    ):
         self.text = text or ""
         self.i = 0
         self.n = len(self.text)
@@ -63,13 +68,6 @@ class NDCAParser:
             if self._match("/*"):
                 self._skip_block_comment("*/")
                 continue
-            if self._match("/*/"):
-                self._skip_block_comment("*/")
-                continue
-            if ch == "*":
-                self._next()
-                self._skip_block_comment("*")
-                continue
             if self._match("<!--"):
                 self._skip_block_comment("-->")
                 continue
@@ -84,7 +82,6 @@ class NDCAParser:
 
     def _skip_block_comment(self, terminator: str) -> None:
         depth = 1
-        term_len = len(terminator)
         while True:
             if self.i >= self.n:
                 self._error("unterminated comment")
@@ -107,7 +104,7 @@ class NDCAParser:
         result = self._parse_object(allow_root=True)
         self._skip_whitespace_and_comments()
         if self.i < self.n:
-            rest = self.text[self.i:].strip()
+            rest = self.text[self.i :].strip()
             if rest != "":
                 self._error("extra data after document")
         return result
@@ -142,20 +139,13 @@ class NDCAParser:
                 value = self._parse_value()
                 if not self.allow_duplicate_keys and key in obj:
                     self._error(f"duplicate key '{key}'")
-                if parent_marker is not None:
-                    if isinstance(value, dict):
-                        value["_parent"] = parent_marker
-                    else:
-                        obj[key] = value
+                if parent_marker is not None and isinstance(value, dict):
+                    value["_parent"] = parent_marker
                 obj[key] = value
                 if key_meta:
                     meta_comments[key] = key_meta
                 self._skip_whitespace_and_comments()
-                if self._peek() == ";":
-                    self._next()
-                    self._skip_whitespace_and_comments()
-                    continue
-                if self._peek() == ",":
+                if self._peek() in ";,":
                     self._next()
                     self._skip_whitespace_and_comments()
                     continue
@@ -182,7 +172,7 @@ class NDCAParser:
             if ch == "]":
                 self._next()
                 break
-            if ch == "\"":
+            if ch == '"':
                 buf.append(self._parse_quoted_content())
                 continue
             if ch == "\\":
@@ -195,7 +185,7 @@ class NDCAParser:
             if ch == "#":
                 self._next()
                 comment_meta = self._consume_until("]")
-                continue
+                break
             buf.append(ch)
             self._next()
         key = "".join(buf).strip()
@@ -206,8 +196,9 @@ class NDCAParser:
         while True:
             ch = self._peek()
             if ch == "":
-                self._error("unexpected EOF in consume")
+                self._error("unexpected EOF")
             if ch == stop_char:
+                self._next()
                 return "".join(out).strip()
             out.append(ch)
             self._next()
@@ -215,7 +206,7 @@ class NDCAParser:
     def _parse_parent_reference(self) -> str:
         self._skip_whitespace_and_comments()
         ch = self._peek()
-        if ch == "\"":
+        if ch == '"':
             return self._parse_string()
         return self._parse_token(allow_empty=False)
 
@@ -224,7 +215,7 @@ class NDCAParser:
         ch = self._peek()
         if ch == "":
             self._error("unexpected EOF when parsing value")
-        if ch == "\"":
+        if ch == '"':
             return self._parse_string()
         if ch == "<":
             return self._parse_object()
@@ -234,14 +225,12 @@ class NDCAParser:
             return self._parse_multiline_string()
         token = self._parse_token(allow_empty=False)
         if token == "":
-            self._error("expected token as value")
-        token_for_bool = token
-        if self.bool_case_insensitive:
-            token_for_bool = token.lower()
-        if token_for_bool in ("true", "false", "null"):
-            if token_for_bool == "true":
+            self._error("expected value")
+        token_cmp = token.lower() if self.bool_case_insensitive else token
+        if token_cmp in ("true", "false", "null", "none"):
+            if token_cmp == "true":
                 return True
-            if token_for_bool == "false":
+            if token_cmp == "false":
                 return False
             return None
         num = self._try_parse_number(token)
@@ -250,13 +239,13 @@ class NDCAParser:
         return token
 
     def _parse_quoted_content(self) -> str:
-        if self._peek() == "\"":
+        if self._peek() == '"':
             self._next()
         buf: List[str] = []
         while True:
             ch = self._next()
             if ch == "":
-                self._error("unterminated quoted content")
+                self._error("unterminated quote")
             if ch == "\\":
                 esc = self._next()
                 if esc == "":
@@ -268,37 +257,21 @@ class NDCAParser:
                 elif esc == "t":
                     buf.append("\t")
                 elif esc == "u":
-                    hex_digits = ""
-                    for _ in range(4):
-                        d = self._next()
-                        if d == "":
-                            self._error("unterminated unicode escape")
-                        hex_digits += d
+                    hex_digits = "".join(self._next() for _ in range(4))
                     try:
                         buf.append(chr(int(hex_digits, 16)))
                     except Exception:
                         buf.append("\\u" + hex_digits)
-                elif esc == "x":
-                    hex_digits = ""
-                    for _ in range(2):
-                        d = self._next()
-                        if d == "":
-                            self._error("unterminated hex escape")
-                        hex_digits += d
-                    try:
-                        buf.append(chr(int(hex_digits, 16)))
-                    except Exception:
-                        buf.append("\\x" + hex_digits)
                 else:
                     buf.append(esc)
                 continue
-            if ch == "\"":
+            if ch == '"':
                 break
             buf.append(ch)
         return "".join(buf)
 
     def _parse_string(self) -> str:
-        if self._next() != "\"":
+        if self._next() != '"':
             self._error("expected '\"' to start string")
         buf: List[str] = []
         while True:
@@ -317,15 +290,10 @@ class NDCAParser:
                     buf.append("\t")
                 elif esc == "\\":
                     buf.append("\\")
-                elif esc == "\"":
-                    buf.append("\"")
+                elif esc == '"':
+                    buf.append('"')
                 elif esc == "u":
-                    hex_digits = ""
-                    for _ in range(4):
-                        d = self._next()
-                        if d == "":
-                            self._error("unterminated unicode escape")
-                        hex_digits += d
+                    hex_digits = "".join(self._next() for _ in range(4))
                     try:
                         buf.append(chr(int(hex_digits, 16)))
                     except Exception:
@@ -333,7 +301,7 @@ class NDCAParser:
                 else:
                     buf.append(esc)
                 continue
-            if ch == "\"":
+            if ch == '"':
                 break
             buf.append(ch)
         return "".join(buf)
@@ -352,9 +320,10 @@ class NDCAParser:
                 break
             ch = self._next()
             buf.append(ch)
-        if buf and buf[0] == "\n":
-            return "".join(buf[1:])
-        return "".join(buf)
+        res = "".join(buf)
+        if res.startswith("\n"):
+            res = res[1:]
+        return res
 
     def _parse_list(self) -> List[Any]:
         if self._next() != "(":
@@ -372,11 +341,7 @@ class NDCAParser:
             arr.append(value)
             self._skip_whitespace_and_comments()
             ch = self._peek()
-            if ch == ";":
-                self._next()
-                self._skip_whitespace_and_comments()
-                continue
-            if ch == ",":
+            if ch in ";,":
                 self._next()
                 self._skip_whitespace_and_comments()
                 continue
@@ -395,7 +360,7 @@ class NDCAParser:
             if ch == "" or ch.isspace() or ch in stop_chars:
                 break
             self._next()
-        tok = self.text[start:self.i]
+        tok = self.text[start : self.i]
         if not allow_empty and tok == "":
             self._error("expected token")
         return tok

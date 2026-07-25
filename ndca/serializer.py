@@ -31,8 +31,10 @@ def _escape_string(s: str) -> str:
 
 
 def _format_float(f: float) -> str:
-    if not math.isfinite(f):
-        return "null"
+    if math.isnan(f):
+        return '"NaN"'
+    if math.isinf(f):
+        return '"Infinity"' if f > 0 else '"-Infinity"'
     s = repr(f)
     if "e" in s or "E" in s or "." in s:
         return s
@@ -51,7 +53,13 @@ def _ensure_valid_key(k: str) -> str:
     return k
 
 
-def _serialize_value(value: Any, seen: Optional[Set[int]] = None) -> str:
+def _serialize_value(
+    value: Any,
+    seen: Optional[Set[int]] = None,
+    indent_level: int = 0,
+    pretty: bool = False,
+    indent_step: int = 2,
+) -> str:
     if seen is None:
         seen = set()
     if value is None:
@@ -75,21 +83,22 @@ def _serialize_value(value: Any, seen: Optional[Set[int]] = None) -> str:
         finally:
             seen.discard(vid)
     if isinstance(value, Mapping):
+        return _serialize_mapping(value, seen, indent_level, pretty, indent_step)
+    if isinstance(value, (Sequence, set)) and not isinstance(value, (str, bytes, bytearray)):
         seen.add(vid)
         try:
-            return _serialize_mapping(value, seen)
-        finally:
-            seen.discard(vid)
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        seen.add(vid)
-        try:
-            parts: List[str] = []
-            parts.append("(")
+            items = value
+            if isinstance(value, set):
+                try:
+                    items = sorted(value)
+                except TypeError:
+                    items = sorted(value, key=lambda x: repr(x))
+            parts: List[str] = ["("]
             first = True
-            for item in value:
+            for item in items:
                 if not first:
-                    parts.append(";")
-                parts.append(_serialize_value(item, seen))
+                    parts.append("; ")
+                parts.append(_serialize_value(item, seen, indent_level, pretty, indent_step))
                 first = False
             parts.append(")")
             return "".join(parts)
@@ -98,7 +107,13 @@ def _serialize_value(value: Any, seen: Optional[Set[int]] = None) -> str:
     raise TypeError(f"unsupported type: {type(value).__name__}")
 
 
-def _serialize_mapping(m: Mapping, seen: Optional[Set[int]] = None) -> str:
+def _serialize_mapping(
+    m: Mapping,
+    seen: Optional[Set[int]] = None,
+    indent_level: int = 0,
+    pretty: bool = False,
+    indent_step: int = 2,
+) -> str:
     if seen is None:
         seen = set()
     vid = id(m)
@@ -108,31 +123,42 @@ def _serialize_mapping(m: Mapping, seen: Optional[Set[int]] = None) -> str:
     try:
         keys = []
         for k in m.keys():
+            if k == "_comments" or k == "_parent":
+                continue
             if not isinstance(k, str):
                 raise TypeError("mapping keys must be strings")
             _ensure_valid_key(k)
             keys.append(k)
         keys_sorted = sorted(keys)
-        parts: List[str] = []
-        parts.append("<")
+        parts: List[str] = ["<"]
+        if pretty and keys_sorted:
+            parts.append("\n")
         first = True
         for k in keys_sorted:
-            if not first:
-                pass
+            if pretty:
+                parts.append(" " * ((indent_level + 1) * indent_step))
+            elif not first:
+                parts.append(" ")
             parts.append("[")
             parts.append(k)
-            parts.append("]")
-            parts.append("=")
-            parts.append(_serialize_value(m[k], seen))
+            parts.append("]=")
+            val = m[k]
+            parts.append(
+                _serialize_value(val, seen, indent_level + 1, pretty, indent_step)
+            )
             parts.append(";")
+            if pretty:
+                parts.append("\n")
             first = False
+        if pretty and keys_sorted:
+            parts.append(" " * (indent_level * indent_step))
         parts.append(">")
         return "".join(parts)
     finally:
         seen.discard(vid)
 
 
-def serialize_object(d: Dict[str, Any]) -> str:
+def serialize_object(d: Dict[str, Any], pretty: bool = False, indent: int = 2) -> str:
     if not isinstance(d, dict):
         raise TypeError("serialize_object expects a dict")
-    return _serialize_mapping(d)
+    return _serialize_mapping(d, pretty=pretty, indent_step=indent)
