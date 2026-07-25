@@ -1,8 +1,7 @@
 import os
 import tempfile
-import io
-from typing import Tuple, List, Any, Dict, Optional, Set
-from collections.abc import Mapping, Sequence
+import copy
+from typing import Tuple, List, Any, Dict, Optional, Set, Union
 
 
 def atomic_write(path: str, data: str, fsync: bool = True) -> None:
@@ -20,73 +19,57 @@ def atomic_write(path: str, data: str, fsync: bool = True) -> None:
     try:
         tmp_fd, tmp_path = tempfile.mkstemp(prefix=".ndca-", dir=directory)
         try:
-            try:
-                os.fchmod(tmp_fd, 0o600)
-            except Exception:
-                pass
+            if hasattr(os, "fchmod"):
+                try:
+                    os.fchmod(tmp_fd, 0o600)
+                except Exception:
+                    pass
             with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
                 tmp_fd = None
                 f.write(data)
                 f.flush()
-                if fsync:
+                if fsync and hasattr(os, "fsync"):
                     try:
                         os.fsync(f.fileno())
                     except Exception:
                         pass
-            try:
-                os.replace(tmp_path, path)
-            except Exception:
-                try:
-                    if os.path.exists(tmp_path):
-                        os.remove(tmp_path)
-                except Exception:
-                    pass
-                raise
-            if fsync:
+            os.replace(tmp_path, path)
+            tmp_path = None
+            if fsync and hasattr(os, "O_RDONLY") and hasattr(os, "open") and hasattr(os, "fsync"):
                 try:
                     dir_fd = os.open(directory, os.O_RDONLY)
                     try:
                         os.fsync(dir_fd)
                     finally:
-                        try:
-                            os.close(dir_fd)
-                        except Exception:
-                            pass
+                        os.close(dir_fd)
                 except Exception:
                     pass
         finally:
             pass
     finally:
-        try:
-            if tmp_fd is not None:
-                try:
-                    os.close(tmp_fd)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        try:
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        if tmp_fd is not None:
+            try:
+                os.close(tmp_fd)
+            except Exception:
+                pass
+        if tmp_path is not None and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 
-def normalize_path(path: str) -> Tuple[List[str], List[int]]:
+def normalize_path(path: str) -> List[Union[str, int]]:
     if not isinstance(path, str):
         raise ValueError("path must be string")
     p = path.strip()
+    if p == "" or p == ".":
+        return []
     if p.startswith("[") and p.endswith("]"):
         p = p[1:-1].strip()
-    if p == "":
-        return [], []
+    tokens: List[Union[str, int]] = []
     i = 0
     n = len(p)
-    keys: List[str] = []
-    idxs: List[int] = []
     while i < n:
         while i < n and p[i] == ".":
             i += 1
@@ -95,46 +78,48 @@ def normalize_path(path: str) -> Tuple[List[str], List[int]]:
         if p[i] == "[":
             i += 1
             j = i
-            while j < n and p[j] != "]":
+            in_quote = None
+            escaped = False
+            buf = []
+            while j < n:
+                ch = p[j]
+                if in_quote:
+                    if escaped:
+                        buf.append(ch)
+                        escaped = False
+                    elif ch == "\\":
+                        escaped = True
+                    elif ch == in_quote:
+                        in_quote = None
+                    else:
+                        buf.append(ch)
+                else:
+                    if ch in ("'", '"'):
+                        in_quote = ch
+                    elif ch == "]":
+                        break
+                    else:
+                        buf.append(ch)
                 j += 1
             if j >= n:
-                raise ValueError("unterminated bracket")
-            inner = p[i:j].strip()
+                raise ValueError("unterminated bracket in path")
+            inner = "".join(buf).strip()
+            i = j + 1
             if inner == "":
-                raise ValueError("missing key name before index")
-            if "[" in inner or "]" in inner:
-                raise ValueError("invalid bracket content")
-            keys.append(inner)
-            i = j + 1
-            continue
-        j = i
-        while j < n and p[j] not in ".[":
-            j += 1
-        token = p[i:j].strip()
-        if token == "":
-            i = j + 1
-            continue
-        if j < n and p[j] == "[":
-            keys.append(token)
-            i = j + 1
-            k = i
-            while k < n and p[k] != "]":
-                k += 1
-            if k >= n:
-                raise ValueError("unterminated index")
-            idxtext = p[i:k].strip()
-            if idxtext == "":
-                idxs.append(-1)
+                tokens.append(-1)
             else:
                 try:
-                    idxs.append(int(idxtext))
-                except Exception:
-                    raise ValueError("invalid index")
-            i = k + 1
+                    tokens.append(int(inner))
+                except ValueError:
+                    tokens.append(inner)
             continue
-        keys.append(token)
-        i = j
-    return keys, idxs
+        start = i
+        while i < n and p[i] not in ".[":
+            i += 1
+        tok = p[start:i].strip()
+        if tok:
+            tokens.append(tok)
+    return tokens
 
 
 def deepcopy(obj: Any, _memo: Optional[Dict[int, Any]] = None) -> Any:
@@ -148,13 +133,13 @@ def deepcopy(obj: Any, _memo: Optional[Dict[int, Any]] = None) -> Any:
     if isinstance(obj, (int, float, str, bool, bytes)):
         return obj
     if isinstance(obj, dict):
-        new: Dict[Any, Any] = {}
-        _memo[oid] = new
+        new_dict: Dict[Any, Any] = {}
+        _memo[oid] = new_dict
         for k, v in obj.items():
             if isinstance(k, (list, dict, set)):
                 raise TypeError("unhashable key type in dict copy")
-            new[k] = deepcopy(v, _memo)
-        return new
+            new_dict[k] = deepcopy(v, _memo)
+        return new_dict
     if isinstance(obj, list):
         new_list: List[Any] = []
         _memo[oid] = new_list
@@ -172,15 +157,14 @@ def deepcopy(obj: Any, _memo: Optional[Dict[int, Any]] = None) -> Any:
             new_set.add(deepcopy(v, _memo))
         return new_set
     try:
-        import copy as _copy
-        new_obj = _copy.deepcopy(obj, memo=_memo)
+        new_obj = copy.deepcopy(obj, memo=_memo)
         _memo[oid] = new_obj
         return new_obj
     except Exception:
         return obj
 
 
-def merge_dicts(a: dict, b: dict) -> dict:
+def merge_dicts(a: dict, b: dict, concat_lists: bool = True) -> dict:
     if not isinstance(a, dict) or not isinstance(b, dict):
         raise TypeError("merge_dicts expects dicts")
     result = deepcopy(a)
@@ -192,8 +176,152 @@ def merge_dicts(a: dict, b: dict) -> dict:
                 if isinstance(target[key], dict) and isinstance(val, dict):
                     stack.append((target[key], val))
                     continue
-                if isinstance(target[key], list) and isinstance(val, list):
+                if concat_lists and isinstance(target[key], list) and isinstance(val, list):
                     target[key] = deepcopy(target[key]) + deepcopy(val)
                     continue
             target[key] = deepcopy(val)
     return result
+
+
+def diff_dicts(a: dict, b: dict, path: str = "") -> Dict[str, Any]:
+    changes: Dict[str, Any] = {"added": {}, "modified": {}, "removed": {}}
+    keys_a = set(a.keys()) if isinstance(a, dict) else set()
+    keys_b = set(b.keys()) if isinstance(b, dict) else set()
+    for k in keys_b - keys_a:
+        p = f"{path}.{k}" if path else k
+        changes["added"][p] = deepcopy(b[k])
+    for k in keys_a - keys_b:
+        p = f"{path}.{k}" if path else k
+        changes["removed"][p] = deepcopy(a[k])
+    for k in keys_a & keys_b:
+        p = f"{path}.{k}" if path else k
+        val_a, val_b = a[k], b[k]
+        if isinstance(val_a, dict) and isinstance(val_b, dict):
+            sub = diff_dicts(val_a, val_b, p)
+            changes["added"].update(sub["added"])
+            changes["modified"].update(sub["modified"])
+            changes["removed"].update(sub["removed"])
+        elif val_a != val_b:
+            changes["modified"][p] = {"old": deepcopy(val_a), "new": deepcopy(val_b)}
+    return changes
+
+
+def patch_dict(target: dict, diff: dict) -> dict:
+    res = deepcopy(target)
+    for p in diff.get("removed", {}):
+        toks = normalize_path(p)
+        curr = res
+        for t in toks[:-1]:
+            if isinstance(t, str) and isinstance(curr, dict) and t in curr:
+                curr = curr[t]
+            elif isinstance(t, int) and isinstance(curr, list) and 0 <= t < len(curr):
+                curr = curr[t]
+        if toks:
+            last = toks[-1]
+            if isinstance(last, str) and isinstance(curr, dict):
+                curr.pop(last, None)
+            elif isinstance(last, int) and isinstance(curr, list) and 0 <= last < len(curr):
+                curr.pop(last)
+    for p, val in diff.get("added", {}).items():
+        toks = normalize_path(p)
+        curr = res
+        for i, t in enumerate(toks[:-1]):
+            nxt = toks[i + 1]
+            if isinstance(t, str):
+                if t not in curr or not isinstance(curr[t], (dict, list)):
+                    curr[t] = [] if isinstance(nxt, int) else {}
+                curr = curr[t]
+            elif isinstance(t, int):
+                while len(curr) <= t:
+                    curr.append(None)
+                if curr[t] is None or not isinstance(curr[t], (dict, list)):
+                    curr[t] = [] if isinstance(nxt, int) else {}
+                curr = curr[t]
+        if toks:
+            last = toks[-1]
+            if isinstance(last, str) and isinstance(curr, dict):
+                curr[last] = deepcopy(val)
+            elif isinstance(last, int) and isinstance(curr, list):
+                while len(curr) <= last:
+                    curr.append(None)
+                curr[last] = deepcopy(val)
+    for p, mod in diff.get("modified", {}).items():
+        val = mod.get("new") if isinstance(mod, dict) and "new" in mod else mod
+        toks = normalize_path(p)
+        curr = res
+        for i, t in enumerate(toks[:-1]):
+            nxt = toks[i + 1]
+            if isinstance(t, str):
+                if t not in curr or not isinstance(curr[t], (dict, list)):
+                    curr[t] = [] if isinstance(nxt, int) else {}
+                curr = curr[t]
+            elif isinstance(t, int):
+                while len(curr) <= t:
+                    curr.append(None)
+                if curr[t] is None or not isinstance(curr[t], (dict, list)):
+                    curr[t] = [] if isinstance(nxt, int) else {}
+                curr = curr[t]
+        if toks:
+            last = toks[-1]
+            if isinstance(last, str) and isinstance(curr, dict):
+                curr[last] = deepcopy(val)
+            elif isinstance(last, int) and isinstance(curr, list):
+                while len(curr) <= last:
+                    curr.append(None)
+                curr[last] = deepcopy(val)
+    return res
+
+
+def flatten_dict(d: dict, parent_key: str = "", sep: str = ".") -> dict:
+    items: List[Tuple[str, Any]] = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else str(k)
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, deepcopy(v)))
+    return dict(items)
+
+
+def unflatten_dict(d: dict, sep: str = ".") -> dict:
+    result: Dict[str, Any] = {}
+    for k, v in d.items():
+        parts = k.split(sep)
+        curr = result
+        for p in parts[:-1]:
+            if p not in curr:
+                curr[p] = {}
+            curr = curr[p]
+        curr[parts[-1]] = deepcopy(v)
+    return result
+
+
+def validate_schema(data: Any, schema: dict) -> Tuple[bool, List[str]]:
+    errors: List[str] = []
+    if not isinstance(schema, dict):
+        return True, errors
+    if not isinstance(data, dict):
+        return False, ["data is not a dictionary"]
+    for field, specs in schema.items():
+        if not isinstance(specs, dict):
+            continue
+        req = specs.get("required", False)
+        if req and field not in data:
+            errors.append(f"field '{field}' is required")
+            continue
+        if field in data:
+            val = data[field]
+            expected_type = specs.get("type")
+            if expected_type:
+                type_map = {
+                    "str": str,
+                    "int": int,
+                    "float": float,
+                    "bool": bool,
+                    "dict": dict,
+                    "list": list,
+                }
+                t = type_map.get(expected_type)
+                if t and not isinstance(val, t):
+                    errors.append(f"field '{field}' must be of type {expected_type}")
+    return len(errors) == 0, errors

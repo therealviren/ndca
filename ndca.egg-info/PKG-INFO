@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ndca
-Version: 4.0.1
+Version: 5.0.1
 Summary: NDCA (Nested Data Collection API) — a fast, safe, and human-readable nested data storage and manipulation library for Python.
 Author: Viren Sahti
 License: MIT License
@@ -51,338 +51,215 @@ Requires-Dist: pytest-cov>=4.0; extra == "test"
 Dynamic: license-file
 
 # NDCA
-Nested Data Collection API  
-Version 4.0.1
+## Nested Data Collection API
+
+NDCA is a modern, lightweight, and reliable Python library for storing, managing, and manipulating nested structured data.
+
+It provides a simple human-readable data format combined with a powerful API for working with objects, lists, files, tables, and structured collections.
+
+Built with safety, performance, and simplicity in mind, NDCA is suitable for scripts, automation tools, applications, and production environments.
 
 ---
 
-# INFO
+# Features
 
-NDCA (Nested Data Collection API) is a fast, secure, and production-ready Python library for storing, reading, and manipulating nested structured data using a compact human-readable format.
-
-NDCA is designed for reliability, atomic persistence, safe in-memory operations, and a simple but powerful API suitable for scripts, services, tools, and applications.
-
-Version **4.0.1** improves the stability of the format, adds more utilities, better serialization, table features, CSV support, pagination helpers, hashing utilities, and stronger internal safety.
-
----
-
-# FEATURES
-
-Human readable data format  
-Nested object support  
-List support  
-Safe deep copy reads  
-Atomic file writing  
-Autosave file instances  
-Path based nested operations  
-Dictionary merging  
-List append and removal helpers  
-Increment and toggle helpers  
-Hash verified writes  
-Import and export helpers  
-CSV import and export  
-Table style data utilities  
-Pagination helpers  
-Production ready stability  
+- Human-readable structured data format
+- Nested object and list support
+- Simple path-based data access
+- Safe data manipulation
+- Atomic file persistence
+- Automatic saving support
+- Import and export functionality
+- Dictionary merging utilities
+- List management helpers
+- Increment and toggle operations
+- Data hashing and integrity checks
+- Table-style data management
+- CSV support
+- Pagination utilities
+- Lightweight and dependency-friendly design
 
 ---
 
-# INSTALLATION
+# Installation
 
-Install with pip.
+Install NDCA using pip:
 
-```
-pip install ndca
-```
-
-Or include the NDCA module directly in your project.
+    pip install ndca
 
 ---
 
-# NDCA FORMAT
+# NDCA Format
 
-NDCA uses a compact structured syntax for storing nested data.
+NDCA uses a compact structured format designed to be easy to read, write, and process.
 
----
+Example:
 
-# OBJECT FORMAT
+    <[name]="Viren";[age]=12;[active]=true;>
 
-```
-<[key]="value";[key2]=123;[key3]=true;>
-```
+Nested data:
 
----
+    <[user]=<[name]="Viren";[skills]=("Python";"Bash";)>;>
 
-# LIST FORMAT
+Supported values:
 
-```
-(value1;value2;value3;)
-```
-
----
-
-# NESTED STRUCTURE
-
-```
-<[name]="Viren";[age]=12;[skills]=("Python";"Bash";"NDCA");[settings]=<[theme]="dark";[enabled]=true;>;>
-```
+- Objects
+- Lists
+- Strings
+- Numbers
+- Booleans
+- Null values
+- Nested structures
 
 ---
 
-# FORMAT RULES
+# Basic Usage
 
-Objects start with `<` and end with `>`  
-Keys are wrapped in `[key]`  
-Key value pairs are separated by `=`  
-Each item ends with `;`  
-Lists use `( )`  
-Strings use `" "`  
-Booleans are `true` and `false`  
-Null values use `null`  
-Nested structures are fully supported  
+    from ndca import NDCA
 
----
+    db = NDCA()
 
-# BASIC USAGE
+    db.write(
+        "user",
+        '<[name]="Viren";[age]=12;>'
+    )
 
-```python
-from ndca import NDCA
-
-store = NDCA()
-
-store.write("user", '<[name]="Viren";[age]=12;>')
-store.write("config", '<[enabled]=true;[theme]="dark";>')
-
-print(store.get("user"))
-```
-
-Output
-
-```
-<[name]="Viren";[age]=12;>
-```
+    print(db.get("user"))
 
 ---
 
-# FILE STORAGE
+# File Storage
 
-```python
-from ndca import file
+NDCA supports persistent storage through file-based databases.
 
-db = file("data.ndca", autosave=True)
+    from ndca import file
 
-db.write("user.name", "Viren")
-db.write("user.age", 12)
+    db = file(
+        "database.ndca",
+        autosave=True
+    )
 
-print(db.get("user.name"))
-```
+    db.write("user.name", "Viren")
 
----
-
-# CORE DATA API
-
-## READ
-
-```
-get(path, default=None)
-get_with_meta(path)
-exists(path)
-keys()
-keys_at(path)
-paths()
-```
+    print(db.get("user.name"))
 
 ---
 
-## WRITE
+# Data Operations
 
-```
-write(path, value)
-setdefault(path, value)
-update(path, dict_value)
-rename(path, new_name)
-```
+NDCA provides a simple API for working with structured data.
 
----
+## Reading
 
-## DELETE
+    get()
+    get_with_meta()
+    exists()
+    keys()
+    keys_at()
+    paths()
 
-```
-delete(path)
-clear_path(path)
-pop(path)
-wipe()
-```
+## Writing
 
----
+    write()
+    setdefault()
+    update()
+    rename()
 
-# LIST UTILITIES
+## Removing
 
-```
-append(path, value)
-remove_from_list(path, value)
-paginate(path, page, per_page)
-```
+    delete()
+    clear_path()
+    pop()
+    wipe()
 
 ---
 
-# DATA UTILITIES
+# Utilities
 
-```
-merge(other_dict)
-incr(path, amount)
-toggle(path)
-count_rows(path)
-```
+Built-in helpers for common operations:
 
----
-
-# IMPORT AND EXPORT
-
-```
-export(filename)
-import_file(filename)
-dump()
-dumps()
-load(filename)
-loads(text)
-save(filename)
-```
+    append()
+    remove_from_list()
+    merge()
+    incr()
+    toggle()
+    count_rows()
 
 ---
 
-# HASH SAFE WRITES
+# Import & Export
 
-```
-hash_write(filename)
-```
+NDCA supports saving and loading data in different ways.
 
-Writes the NDCA file with a verification hash to ensure integrity.
+    export()
+    import_file()
 
----
+    dump()
+    dumps()
 
-# TABLE UTILITIES
+    load()
+    loads()
 
-NDCA provides lightweight table features for structured row based data.
-
----
-
-## CREATE TABLE
-
-```
-table_create(path, columns)
-```
+    save()
 
 ---
 
-## INSERT ROW
+# Data Integrity
 
-```
-table_insert(path, row)
-```
+NDCA includes optional hash verification for safer file handling.
 
----
+    hash_write()
 
-## GET ROW
-
-```
-table_get_row(path, index)
-```
+This helps detect corrupted or modified data files.
 
 ---
 
-## FIND ROWS
+# Tables
 
-```
-table_find(path, criteria)
-```
+NDCA includes lightweight table utilities for structured row-based data.
 
-Criteria can be a dictionary or callable.
+Supported features:
 
----
-
-## UPDATE ROW
-
-```
-table_update_row(path, index, updates)
-```
-
----
-
-## DELETE ROW
-
-```
-table_delete_row(path, index)
-```
+- Create tables
+- Insert rows
+- Find rows
+- Update rows
+- Delete rows
+- Sort data
+- Create indexes
+- Import CSV files
+- Export CSV files
 
 ---
 
-## TABLE INDEX
+# Pagination
 
-```
-table_index(path, key, unique=False)
-```
+Large collections can be handled using built-in pagination support.
 
----
+Example response:
 
-## SORT TABLE
-
-```
-table_sort(path, key, reverse=False)
-```
-
----
-
-## CSV EXPORT
-
-```
-table_to_csv(path, filename, include_header=True)
-```
+    {
+        "page": 1,
+        "per_page": 10,
+        "total": 100,
+        "items": []
+    }
 
 ---
 
-## CSV IMPORT
+# Design Goals
 
-```
-table_from_csv(path, filename, columns=None)
-```
+NDCA focuses on:
 
----
-
-# PAGINATION
-
-```python
-page = store.paginate("items", page=1, per_page=10)
-
-print(page["items"])
-print(page["total"])
-```
-
-Pagination returns:
-
-```
-page
-per_page
-total
-items
-```
+- Simplicity
+- Reliability
+- Safe data handling
+- Human readability
+- Fast operations
+- Easy integration
 
 ---
 
-# VERSION
+# License
 
-NDCA Version 4.0.1
-
----
-
-# EXAMPLE DATA
-
-```
-<[user]=<[name]="Viren";[age]=12;>;[settings]=<[theme]="dark";[notifications]=true;>;[skills]=("Python";"Bash";"NDCA");>
-```
-
----
-
-# LICENSE
-
-See the license included in this project.
+See the included license file for usage and distribution terms.
