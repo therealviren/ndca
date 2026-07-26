@@ -1,18 +1,27 @@
 [build-system]
-requires = ["setuptools>=70.0", "wheel>=0.38.0"]
+requires = ["setuptools>=70", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ndca"
-version = "5.0.2"
+version = "5.0.3"
 description = "NDCA (Nested Data Collection API) — a fast, safe, and human-readable nested data storage and manipulation library for Python."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
-authors = [
-  { name = "Viren Sahti" }
+authors = [{ name = "Viren Sahti" }]
+keywords = [
+  "ndca",
+  "nested",
+  "data",
+  "storage",
+  "serialization",
+  "configuration",
+  "table",
+  "csv",
+  "python",
+  "library"
 ]
-keywords = ["ndca", "nested", "data", "storage", "serialization", "configuration", "table", "csv", "python", "library"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
@@ -22,24 +31,24 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Libraries",
   "Topic :: Database :: Database Engines/Servers"
 ]
-
 dependencies = []
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=7.0",
-  "mypy>=1.0",
-  "black>=23.0",
-  "ruff>=0.12",
-  "isort>=6.0",
-  "pre-commit>=3.0"
+  "black>=24.0",
+  "isort>=5.13",
+  "mypy>=1.8",
+  "pre-commit>=3.7",
+  "pytest>=8.0",
+  "ruff>=0.5"
 ]
 test = [
-  "pytest-cov>=4.0"
+  "pytest-cov>=5.0"
 ]
 
 [tool.setuptools]
@@ -47,10 +56,31 @@ include-package-data = true
 zip-safe = false
 
 [tool.setuptools.packages.find]
+where = ["."]
 include = ["ndca*"]
 
 [tool.setuptools.package-data]
-"ndca" = ["py.typed", "*.pyi", "py.typed"]
+ndca = ["py.typed", "*.pyi"]
 
-[tool.setuptools.dynamic]
-readme = { file = "README.md" }
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+src = ["ndca", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+src_paths = ["ndca", "tests"]

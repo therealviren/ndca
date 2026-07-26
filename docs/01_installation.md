@@ -25,7 +25,7 @@ If the file exists, NDCA loads it. If it does not exist, the file can be created
 ```python
 db = NDCA()
 db.write("project.name", "NDCA")
-db.write("project.version", "5.0.1")
+db.write("project.version", "5.0.3")
 ```
 
 ## Saving Changes

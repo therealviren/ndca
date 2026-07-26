@@ -20,7 +20,7 @@ from .utils import (
     validate_schema,
 )
 
-version = "5.0.1"
+version = "5.0.3"
 
 _SENTINEL = object()
 
